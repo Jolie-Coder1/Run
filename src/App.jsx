@@ -1,51 +1,136 @@
 
-import { useState } from 'react'
-import './App.css'
-import FilterBar from './FilterBar'
-import TaskForm from './TaskForm'
-import TaskList from './TaskList'
+import { useEffect, useRef, useState } from "react";
+import "./App.css";
 
 function App() {
+  // 1. Load saved tasks once when the app starts
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const savedTasks = localStorage.getItem("myTasks");
+      return savedTasks ? JSON.parse(savedTasks) : [];
+    } catch {
+      return [];
+    }
+  });
 
-  const [tasks, setTasks] = useState([])
-  const [filter, setFilter] = useState('all')
+  const [newTask, setNewTask] = useState("");
 
-  const addTask = (title) => 
-    setTasks((prevTasks) => [...prevTasks, { id: crypto.randomUUID(), title, done: false }])
+  // 2. Create a reference for the input
+  const inputRef = useRef(null);
 
-  const toggleTask = (id) =>
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  // 3. Automatically focus the input when the app opens
+  useEffect(() => {
+    inputRef.current.focus();
+  }, []);
 
-  const deleteTask = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
+  // 4. Save tasks whenever the tasks list changes
+  useEffect(() => {
+    localStorage.setItem("myTasks", JSON.stringify(tasks));
+  }, [tasks]);
 
-  const clearCompleted = () => setTasks((prev) => prev.filter((t) => !t.done));
+  // 5. Count tasks that are not completed
+  const remainingTasks = tasks.filter(
+    (task) => !task.completed
+  ).length;
 
-  const visible = tasks.filter((t) =>
-    filter === "active" ? !t.done : filter === "completed" ? t.done : true
-  );
+  // 6. Update the browser tab title
+  useEffect(() => {
+    document.title = `To-Do List (${remainingTasks} remaining)`;
+  }, [remainingTasks]);
 
-  const remaining = tasks.filter((t) => !t.done).length;
+  // Add a new task
+  const addTask = (event) => {
+    event.preventDefault();
 
+    if (newTask.trim() === "") {
+      return;
+    }
+
+    const task = {
+      id: Date.now(),
+      text: newTask.trim(),
+      completed: false,
+    };
+
+    setTasks((previousTasks) => [...previousTasks, task]);
+    setNewTask("");
+    inputRef.current.focus();
+  };
+
+  // Mark a task as completed or incomplete
+  const toggleTask = (id) => {
+    setTasks((previousTasks) =>
+      previousTasks.map((task) =>
+        task.id === id
+          ? { ...task, completed: !task.completed }
+          : task
+      )
+    );
+  };
+
+  // Delete a task
+  const deleteTask = (id) => {
+    setTasks((previousTasks) =>
+      previousTasks.filter((task) => task.id !== id)
+    );
+  };
 
   return (
-    <>
-      <main>
-        <h1>My Task</h1>
-        <TaskForm onAdd={addTask} />
-        <FilterBar filter={filter} onChange={setFilter} />
-        <TaskList tasks={visible} onToggle={toggleTask} onDelete={deleteTask} />
+    <div className="app">
+      <div className="todo-container">
+        <h1>My To-Do List</h1>
+        <p className="subtitle">
+          Organize your tasks and stay productive.
+        </p>
 
+        <form onSubmit={addTask} className="task-form">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Enter a new task..."
+            value={newTask}
+            onChange={(event) => setNewTask(event.target.value)}
+          />
 
-         <footer className="todo-footer">
-        <p role="status">{remaining} task{remaining === 1 ? "" : "s"} left</p>
-        {tasks.some((t) => t.done) && (
-          <button type="button" onClick={clearCompleted}>Clear completed</button>
+          <button type="submit">Add Task</button>
+        </form>
+
+        <div className="task-summary">
+          <p>Total tasks: {tasks.length}</p>
+          <p>Remaining: {remainingTasks}</p>
+        </div>
+
+        <ul className="task-list">
+          {tasks.map((task) => (
+            <li key={task.id} className="task-item">
+              <label className={task.completed ? "completed" : ""}>
+                <input
+                  type="checkbox"
+                  checked={task.completed}
+                  onChange={() => toggleTask(task.id)}
+                />
+                {task.text}
+              </label>
+
+              <button
+                className="delete-button"
+                onClick={() => deleteTask(task.id)}
+                type="button"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {tasks.length === 0 && (
+          <p className="empty-message">
+            No tasks yet. Add your first task!
+          </p>
         )}
-      </footer>
-
-      </main>
-    </>
-  )
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
